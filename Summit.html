@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Summit Seating</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,700;1,6..96,500&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a navy conference table seen from above; delegations are ivory place cards, seat I at the head. */
+:root{
+  --table:#0e1a2b;
+  --table-2:#15263c;
+  --card:#eeebe2;
+  --ink:#152132;
+  --brass:#bf9b52;
+  --seated:#2f6d52;
+  --misplaced:#97363c;
+  --muted:#93a1b5;
+  --display:"Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
+  --body:"Public Sans", "Helvetica Neue", Arial, sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  background:var(--table);
+  background-image:radial-gradient(ellipse 120% 70% at 50% 0%, var(--table-2) 0%, var(--table) 70%);
+  color:var(--card);
+  font-family:var(--body);
+  font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:520px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-direction:column;gap:6px;text-align:left}
+.office{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass);font-weight:600;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:500;font-size:44px;line-height:1;margin:2px 0 0;letter-spacing:-.01em;text-wrap:balance}
+h1 em{font-style:italic;color:var(--brass)}
+.rule{height:1px;background:linear-gradient(90deg,var(--brass),transparent);opacity:.7}
+
+.brief{border:1px solid rgba(191,155,82,.45);padding:14px 16px;display:flex;flex-direction:column;gap:4px;position:relative}
+.brief.extra{border-color:var(--brass);box-shadow:inset 0 0 0 3px var(--table),inset 0 0 0 4px rgba(191,155,82,.5)}
+.brief .kind{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.brief .stat{font-family:var(--display);font-size:26px;line-height:1.15;font-weight:700}
+.brief .dir{font-size:14px;color:var(--muted)}
+.brief .dir b{color:var(--card);font-weight:600}
+
+.tries{display:flex;align-items:center;gap:10px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.seals{display:flex;gap:6px}
+.seal{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--brass)}
+.seal.used{background:var(--brass)}
+
+ol.table{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.card{
+  display:grid;grid-template-columns:34px 34px 1fr auto;align-items:center;gap:10px;
+  background:var(--card);color:var(--ink);
+  padding:10px 10px 10px 8px;border-radius:3px;
+  border-left:4px solid transparent;
+  box-shadow:0 1px 0 rgba(0,0,0,.25),0 6px 14px -8px rgba(0,0,0,.6);
+  touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;position:relative;
+  transition:box-shadow .15s ease;
+}
+.card.dragging{cursor:grabbing;z-index:5;box-shadow:0 14px 28px -10px rgba(0,0,0,.8);transition:none}
+.card.locked{cursor:default;border-left-color:var(--seated)}
+.card.wrong{border-left-color:var(--misplaced)}
+.seat{font-family:var(--display);font-size:15px;color:#7b6a45;text-align:center;font-weight:700}
+.flag{font-size:26px;line-height:1;text-align:center}
+.name{font-family:var(--display);font-size:19px;font-weight:500;line-height:1.15;overflow-wrap:anywhere}
+.name small{display:block;font-family:var(--body);font-size:13px;color:#566173;font-weight:500;font-variant-numeric:tabular-nums;margin-top:2px}
+.moves{display:flex;flex-direction:column;gap:2px}
+.moves button{width:30px;height:24px;border:1px solid #c9c3b3;background:transparent;color:var(--ink);border-radius:2px;font-size:11px;cursor:pointer;padding:0}
+.moves button:disabled{opacity:.25;cursor:default}
+.status-mark{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.status-mark.ok{color:var(--seated)}
+
+.actions{display:flex;flex-direction:column;gap:10px}
+button.primary{
+  font-family:var(--body);font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase;
+  background:var(--brass);color:var(--table);border:0;padding:14px 18px;border-radius:2px;cursor:pointer;
+}
+button.primary:hover{filter:brightness(1.06)}
+button.ghost{font-family:var(--body);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;background:transparent;color:var(--card);border:1px solid rgba(238,235,226,.35);padding:10px 14px;border-radius:2px;cursor:pointer}
+button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.msg{font-size:14px;color:var(--muted);min-height:1.5em}
+
+.result{border-top:1px solid rgba(191,155,82,.45);padding-top:16px;display:flex;flex-direction:column;gap:12px}
+.result h2{font-family:var(--display);font-weight:500;font-size:28px;margin:0;line-height:1.1}
+.grid{font-size:20px;line-height:1.25;letter-spacing:2px}
+.statsrow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.statsrow div{display:flex;flex-direction:column;align-items:flex-start}
+.statsrow b{font-family:var(--display);font-size:28px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.1}
+.statsrow span{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+textarea.sharebox{width:100%;min-height:96px;background:var(--table-2);color:var(--card);border:1px solid rgba(238,235,226,.25);font-family:var(--body);font-size:14px;padding:8px}
+.next{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+footer{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:8px;border-top:1px solid rgba(147,161,181,.2);padding-top:16px}
+footer h3{font-family:var(--display);font-weight:500;color:var(--card);font-size:18px;margin:0}
+footer p{margin:0;max-width:65ch}
+.practice{display:flex;gap:8px;flex-wrap:wrap}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@keyframes settle{from{transform:translateY(-3px);opacity:.6}to{transform:none;opacity:1}}
+.card.reveal{animation:settle .35s ease both}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="office"><span>Office of Protocol</span><span id="dateline"></span></div>
+    <h1>Summit <em>Seating</em></h1>
+    <div class="rule"></div>
+  </header>
+
+  <section class="brief" id="brief" aria-live="polite">
+    <span class="kind" id="kind"></span>
+    <span class="stat" id="statName"></span>
+    <span class="dir" id="statDir"></span>
+  </section>
+
+  <div class="tries"><span>Attempts</span><div class="seals" id="seals"></div></div>
+
+  <ol class="table" id="table" aria-label="Seating order, seat I at the head of the table"></ol>
+
+  <div class="actions" id="actions">
+    <button class="primary" id="submitBtn" type="button">Seat the delegations</button>
+    <div class="msg" id="msg">Drag the place cards, or use the arrows, then seat them.</div>
+  </div>
+
+  <section class="result" id="result" hidden></section>
+
+  <footer>
+    <h3>How to play</h3>
+    <p>Each day the Office of Protocol names one statistic. Put the delegations in order, seat I at the head of the table. You have three attempts. Correctly seated delegations turn green and stay in place.</p>
+    <p>On Mondays and Fridays an Extraordinary Summit brings seven delegations with closer figures.</p>
+    <p>Figures are rounded estimates from around 2023 (UN, World Bank). "Year founded" means the year of independence or unification of the modern state; countries with no clear founding date sit those rounds out.</p>
+    <div class="practice">
+      <button class="ghost" type="button" id="practiceBtn">Practice round</button>
+      <button class="ghost" type="button" id="practiceHardBtn">Practice Extraordinary Summit</button>
+      <button class="ghost" type="button" id="dailyBtn" hidden>Back to today's summit</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+// [iso2, name, tier, population (millions), GDP (US$ bn, nominal), area (thousand km²), year founded, life expectancy]
+var DATA=[
+["US","United States",1,335,27360,9834,1776,79.3],["CN","China",1,1410,17790,9597,null,78.0],
+["IN","India",1,1430,3550,3287,1947,72.0],["JP","Japan",1,124,4210,378,null,84.7],
+["DE","Germany",1,84.5,4460,357,1871,81.4],["GB","United Kingdom",1,68.3,3340,244,1707,81.3],
+["FR","France",1,68.2,3030,552,null,83.0],["IT","Italy",1,59,2250,302,1861,83.7],
+["BR","Brazil",1,216,2170,8516,1822,75.8],["CA","Canada",1,40,2140,9985,1867,82.6],
+["RU","Russia",1,144,2020,17098,1991,73.2],["KR","South Korea",1,51.7,1710,100,1948,83.7],
+["AU","Australia",1,26.6,1720,7692,1901,83.2],["MX","Mexico",1,129,1790,1964,1821,75.0],
+["ES","Spain",1,48.3,1580,506,null,83.9],["ID","Indonesia",1,278,1370,1905,1945,71.0],
+["NL","Netherlands",1,17.9,1120,41.5,null,82.2],["SA","Saudi Arabia",1,33,1070,2150,1932,78.7],
+["TR","Turkey",1,85.3,1110,784,1923,77.2],["CH","Switzerland",1,8.8,880,41.3,null,84.0],
+["PL","Poland",1,36.7,810,313,1918,78.6],["AR","Argentina",1,46.3,640,2780,1816,77.4],
+["SE","Sweden",1,10.5,590,450,null,83.3],["BE","Belgium",1,11.8,630,30.5,1830,82.1],
+["NO","Norway",1,5.5,485,385,1905,83.2],["AT","Austria",1,9.1,520,83.9,null,81.9],
+["IE","Ireland",1,5.3,550,70.3,1922,82.4],["IL","Israel",1,9.8,510,22.1,1948,83.0],
+["AE","United Arab Emirates",1,9.5,500,83.6,1971,79.2],["EG","Egypt",1,113,395,1002,1922,70.2],
+["NG","Nigeria",1,224,360,924,1960,54.5],["ZA","South Africa",1,60.4,380,1221,1910,61.5],
+["PK","Pakistan",1,240,340,796,1947,67.6],["BD","Bangladesh",1,173,440,148,1971,73.7],
+["VN","Vietnam",1,99,430,331,1945,74.6],["TH","Thailand",1,71.8,515,513,null,79.7],
+["PH","Philippines",1,117,437,300,1946,69.8],["SG","Singapore",1,5.9,500,0.73,1965,83.7],
+["GR","Greece",1,10.4,240,132,1830,81.9],["PT","Portugal",1,10.5,290,92.2,null,82.4],
+["DK","Denmark",1,5.9,405,42.9,null,81.9],["FI","Finland",1,5.6,300,338,1917,82.0],
+["NZ","New Zealand",1,5.2,250,268,1907,82.5],["UA","Ukraine",1,37,179,604,1991,73.4],
+["IR","Iran",1,89,400,1648,null,77.7],["KE","Kenya",1,55,108,580,1963,63.6],
+["CU","Cuba",1,11,107,110,1902,78.1],["IS","Iceland",1,0.39,31,103,1944,83.0],
+["CO","Colombia",1,52,365,1142,1810,77.7],["CL","Chile",1,19.6,335,756,1818,81.2],
+["MY","Malaysia",2,34.3,400,330,1957,76.7],["PE","Peru",2,34.4,268,1285,1821,77.7],
+["CZ","Czechia",2,10.9,330,78.9,1993,79.8],["HU","Hungary",2,9.6,212,93,null,76.7],
+["RO","Romania",2,19,350,238,1878,76.6],["ET","Ethiopia",2,127,160,1104,null,66.6],
+["IQ","Iraq",2,45.5,250,438,1932,72.3],["JM","Jamaica",2,2.8,19,11,1962,71.5],
+["MA","Morocco",2,37.8,145,447,1956,75.3],["DZ","Algeria",2,45.6,240,2382,1962,76.3],
+["GH","Ghana",2,34,76,239,1957,64.9],["CD","DR Congo",2,102,66,2345,1960,61.9],
+["TZ","Tanzania",2,67,79,947,1961,66.8],["AO","Angola",2,36.7,85,1247,1975,62.0],
+["VE","Venezuela",2,28.8,100,916,1811,72.5],["UY","Uruguay",2,3.4,77,176,1825,78.0],
+["EC","Ecuador",2,18,119,257,1830,77.9],["BO","Bolivia",2,12.4,46,1099,1825,68.6],
+["CR","Costa Rica",2,5.2,86,51.1,1821,80.8],["PA","Panama",2,4.5,83,75.4,1903,79.6],
+["GT","Guatemala",2,18.1,104,109,1821,72.6],["DO","Dominican Republic",2,11.3,121,48.7,1844,74.2],
+["HT","Haiti",2,11.7,20,27.8,1804,64.9],["KZ","Kazakhstan",2,20,260,2725,1991,74.4],
+["UZ","Uzbekistan",2,36,90,449,1991,71.7],["AF","Afghanistan",2,42,17,653,null,66.0],
+["NP","Nepal",2,30.9,41,147,null,70.5],["LK","Sri Lanka",2,22,84,65.6,1948,77.5],
+["MM","Myanmar",2,54,65,677,1948,67.1],["KH","Cambodia",2,17,31,181,1953,70.7],
+["MN","Mongolia",2,3.4,20,1564,1911,71.0],["QA","Qatar",2,2.7,235,11.6,1971,81.6],
+["KW","Kuwait",2,4.3,160,17.8,1961,79.7],["JO","Jordan",2,11.3,50,89.3,1946,77.8],
+["LB","Lebanon",2,5.4,18,10.5,1943,77.8],["TN","Tunisia",2,12.4,48.5,164,1956,76.5],
+["LY","Libya",2,6.9,50,1760,1951,72.9],["SN","Senegal",2,18,31,197,1960,68.7],
+["CI","Côte d'Ivoire",2,28.9,79,322,1960,61.0],["UG","Uganda",2,48.6,49,241,1962,68.2],
+["RW","Rwanda",2,14,14,26.3,1962,67.8],["ZW","Zimbabwe",2,16.7,35,391,1980,62.8],
+["HR","Croatia",2,3.9,82,56.6,1991,78.6],["BG","Bulgaria",2,6.4,100,111,1908,75.6],
+["SK","Slovakia",2,5.4,133,49,1993,77.4],["SI","Slovenia",2,2.1,68,20.3,1991,81.7],
+["EE","Estonia",2,1.37,41,45.3,1918,78.6],["LV","Latvia",2,1.88,43,64.6,1918,75.9],
+["LT","Lithuania",2,2.86,79,65.3,1918,77.0],["LU","Luxembourg",2,0.66,86,2.59,1839,83.0],
+["MT","Malta",2,0.54,21,0.32,1964,83.3],["CY","Cyprus",2,1.26,32,9.25,1960,81.2],
+["BY","Belarus",2,9.2,72,208,1991,74.2],["GE","Georgia",2,3.7,30.5,69.7,1991,73.0],
+["AM","Armenia",2,2.8,24,29.7,1991,76.0],["AZ","Azerbaijan",2,10.1,72,86.6,1991,74.0],
+["AL","Albania",2,2.75,23,28.7,1912,79.6],["SD","Sudan",2,48,30,1886,1956,65.6],
+["YE","Yemen",2,34,21,528,1990,63.7],["SY","Syria",2,23,null,185,1946,72.1],
+["CM","Cameroon",2,28.6,48,475,1960,63.7],["MZ","Mozambique",2,33.9,21,799,1975,63.6],
+["MG","Madagascar",2,30.3,16,587,1960,65.2],["SO","Somalia",2,18,11,638,1960,58.8],
+["ZM","Zambia",3,20.6,28,753,1964,66.3],["BW","Botswana",3,2.7,19.4,582,1966,69.2],
+["NA","Namibia",3,2.6,12.4,824,1990,67.4],["ML","Mali",3,23.3,21,1240,1960,60.4],
+["NE","Niger",3,27.2,17,1267,1960,63.6],["TD","Chad",3,18.3,13,1284,1960,55.2],
+["SS","South Sudan",3,11,null,644,2011,57.6],["BF","Burkina Faso",3,23.3,20,274,1960,60.0],
+["MW","Malawi",3,21,13,118,1964,67.0],["PY","Paraguay",3,6.9,43,407,1811,73.8],
+["HN","Honduras",3,10.6,34,112,1821,73.7],["SV","El Salvador",3,6.3,34,21,1821,72.1],
+["NI","Nicaragua",3,7,17.8,130,1821,74.6],["BS","Bahamas",3,0.41,14,13.9,1973,74.6],
+["TT","Trinidad and Tobago",3,1.53,28,5.13,1962,73.5],["BB","Barbados",3,0.28,6.4,0.43,1966,78.0],
+["GY","Guyana",3,0.81,17,215,1966,70.2],["SR","Suriname",3,0.62,3.6,164,1975,73.6],
+["BZ","Belize",3,0.41,3.1,23,1981,71.0],["MD","Moldova",3,2.5,16.5,33.8,1991,71.0],
+["MK","North Macedonia",3,1.83,15,25.7,1991,76.3],["BA","Bosnia and Herzegovina",3,3.2,27,51.2,1992,77.9],
+["ME","Montenegro",3,0.62,7.4,13.8,2006,77.0],["LA","Laos",3,7.6,15,237,1953,68.9],
+["TJ","Tajikistan",3,10.1,12,141,1991,71.6],["KG","Kyrgyzstan",3,7,14,200,1991,72.2],
+["TM","Turkmenistan",3,6.5,null,488,1991,69.3],["BH","Bahrain",3,1.57,44,0.78,1971,79.2],
+["OM","Oman",3,4.6,108,310,null,79.7],["FJ","Fiji",3,0.93,5.4,18.3,1970,67.3],
+["PG","Papua New Guinea",3,10.3,31,463,1975,66.1],["BT","Bhutan",3,0.79,2.9,38.4,null,72.2],
+["MV","Maldives",3,0.52,6.6,0.3,1965,81.0],["BN","Brunei",3,0.45,15,5.77,1984,75.3],
+["TL","Timor-Leste",3,1.36,2,14.9,2002,69.0],["LI","Liechtenstein",3,0.039,7.4,0.16,1806,84.0],
+["MC","Monaco",3,0.039,8.6,0.0021,null,86.5],["AD","Andorra",3,0.08,3.7,0.47,null,84.0],
+["SM","San Marino",3,0.034,1.9,0.061,null,85.0],["KP","North Korea",3,26,null,121,1948,73.6]
+];
+var COUNTRIES=DATA.map(function(r){return{iso:r[0],name:r[1],tier:r[2],pop:r[3],gdp:r[4],area:r[5],founded:r[6],life:r[7]};});
+
+var STATS={
+  pop:{label:"Population",dir:"desc",dirText:"<b>Largest</b> at the head of the table",kind:"ratio"},
+  gdp:{label:"Economy (GDP)",dir:"desc",dirText:"<b>Largest</b> at the head of the table",kind:"ratio"},
+  area:{label:"Land area",dir:"desc",dirText:"<b>Largest</b> at the head of the table",kind:"ratio"},
+  founded:{label:"Year founded",dir:"asc",dirText:"<b>Oldest</b> at the head of the table",kind:"years"},
+  life:{label:"Life expectancy",dir:"desc",dirText:"<b>Longest</b> at the head of the table",kind:"life"}
+};
+var STAT_KEYS=["pop","gdp","area","founded","life"];
+var MODES={
+  regular:{count:5,ratio:1.3,years:20,life:2.5,weights:[6,2,0]},
+  extra:{count:7,ratio:1.12,years:6,life:1.0,weights:[3,3,1]}
+};
+var MAX_TRIES=3;
+var LAUNCH=Date.UTC(2026,10,11);
+var ROMAN=["I","II","III","IV","V","VI","VII"];
+
+function hash(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0;i<str.length;i++){var c=str.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return(h2>>>0)*4294967296+(h1>>>0);}
+function rng(seed){var a=seed>>>0;return function(){a=(a+0x6D2B79F5)|0;var t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+function shuffle(arr,r){var a=arr.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(r()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function flag(iso){return String.fromCodePoint.apply(null,iso.split("").map(function(c){return 127397+c.charCodeAt(0);}));}
+function byIso(iso){for(var i=0;i<COUNTRIES.length;i++)if(COUNTRIES[i].iso===iso)return COUNTRIES[i];return null;}
+
+function localDateKey(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function dayNumber(d){return Math.floor((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-LAUNCH)/86400000)+1;}
+
+function statForDay(n){
+  var block=Math.floor((n-1)/5),pos=((n-1)%5+5)%5;
+  return shuffle(STAT_KEYS,rng(hash("stats-"+block)))[pos];
+}
+
+function sortedIds(ids,key){
+  var s=STATS[key];
+  return ids.slice().sort(function(a,b){var va=byIso(a)[key],vb=byIso(b)[key];return s.dir==="desc"?vb-va:va-vb;});
+}
+function gapsOk(ids,key,mode){
+  var s=STATS[key],sorted=sortedIds(ids,key);
+  for(var i=0;i<sorted.length-1;i++){
+    var a=byIso(sorted[i])[key],b=byIso(sorted[i+1])[key];
+    if(s.kind==="ratio"){var hi=Math.max(a,b),lo=Math.min(a,b);if(lo<=0||hi/lo<mode.ratio)return false;}
+    else if(s.kind==="years"){if(Math.abs(a-b)<mode.years)return false;}
+    else{if(Math.abs(a-b)<mode.life)return false;}
+  }
+  return true;
+}
+function generate(seedStr,key,modeName){
+  var mode=MODES[modeName],r=rng(hash(seedStr));
+  var pool=COUNTRIES.filter(function(c){return c[key]!==null&&mode.weights[c.tier-1]>0;});
+  for(var attempt=0;attempt<20000;attempt++){
+    var avail=pool.slice(),chosen=[];
+    while(chosen.length<mode.count){
+      var total=0;avail.forEach(function(c){total+=mode.weights[c.tier-1];});
+      var x=r()*total,idx=0;
+      for(;idx<avail.length;idx++){x-=mode.weights[avail[idx].tier-1];if(x<=0)break;}
+      idx=Math.min(idx,avail.length-1);
+      chosen.push(avail[idx].iso);avail.splice(idx,1);
+    }
+    if(gapsOk(chosen,key,mode)){
+      var answer=sortedIds(chosen,key),start;
+      for(var k=0;k<50;k++){start=shuffle(chosen,r);var same=0;for(var j=0;j<start.length;j++)if(start[j]===answer[j])same++;if(same<=1)break;}
+      return{answer:answer,order:start};
+    }
+  }
+  return null;
+}
+
+function fmt(key,v){
+  if(key==="pop"){if(v>=1000)return(v/1000).toFixed(2)+" billion people";if(v>=1)return(v>=100?Math.round(v):v.toFixed(1))+" million people";return Math.round(v*1000).toLocaleString("en-GB")+",000 people";}
+  if(key==="gdp"){if(v>=1000)return"$"+(v/1000).toFixed(1)+" trillion";if(v>=1)return"$"+(v>=100?Math.round(v):v.toFixed(1))+" billion";return"$"+Math.round(v*1000)+" million";}
+  if(key==="area"){return Math.round(v*1000).toLocaleString("en-GB")+" km²";}
+  if(key==="founded")return"Founded "+v;
+  if(key==="life")return v.toFixed(1)+" years";
+  return String(v);
+}
+
+// storage
+var STORE="summit-seating-v1";
+function load(){try{return JSON.parse(localStorage.getItem(STORE))||{};}catch(e){return{};}}
+function save(obj){try{localStorage.setItem(STORE,JSON.stringify(obj));}catch(e){}}
+
+var store=load();
+store.stats=store.stats||{played:0,wins:0,streak:0,best:0,lastWin:null};
+store.days=store.days||{};
+
+var state=null,practice=false;
+
+function newDaily(){
+  var now=new Date(),key=localDateKey(now),n=dayNumber(now),dow=now.getDay();
+  var modeName=(dow===1||dow===5)?"extra":"regular";
+  var stat=statForDay(n);
+  var saved=store.days[key];
+  if(saved&&saved.number===n)return saved;
+  var g=generate("summit-"+key,stat,modeName);
+  return{date:key,number:n,mode:modeName,stat:stat,answer:g.answer,order:g.order,locked:g.order.map(function(){return false;}),guesses:[],done:false,won:false,dow:dow};
+}
+function newPractice(modeName){
+  var stat=STAT_KEYS[Math.floor(Math.random()*5)];
+  var g=generate("practice-"+Math.random(),stat,modeName);
+  return{date:"practice",number:0,mode:modeName,stat:stat,answer:g.answer,order:g.order,locked:g.order.map(function(){return false;}),guesses:[],done:false,won:false,dow:new Date().getDay()};
+}
+function persist(){if(!practice){store.days={};store.days[state.date]=state;save(store);}}
+
+var $=function(id){return document.getElementById(id);};
+var DOW=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+var MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function render(){
+  var s=STATS[state.stat],now=new Date();
+  $("dateline").textContent=practice?"Practice session":("No. "+state.number+" · "+DOW[now.getDay()]+" "+now.getDate()+" "+MONTHS[now.getMonth()]);
+  $("brief").classList.toggle("extra",state.mode==="extra");
+  $("kind").textContent=(state.mode==="extra"?"Extraordinary Summit · seven delegations":"Today's order of precedence")+(practice?" (practice)":"");
+  $("statName").textContent=s.label;
+  $("statDir").innerHTML=s.dirText;
+  var seals=$("seals");seals.innerHTML="";
+  for(var i=0;i<MAX_TRIES;i++){var d=document.createElement("span");d.className="seal"+(i<state.guesses.length?" used":"");seals.appendChild(d);}
+  seals.setAttribute("aria-label",state.guesses.length+" of "+MAX_TRIES+" attempts used");
+
+  var list=$("table");list.innerHTML="";
+  var last=state.guesses[state.guesses.length-1];
+  state.order.forEach(function(iso,i){
+    var c=byIso(iso),li=document.createElement("li");
+    var locked=state.locked[i]||state.done;
+    li.className="card"+(state.locked[i]?" locked":"")+(!state.locked[i]&&last&&!state.done?" wrong":"")+(state.done&&!state.locked[i]?" wrong":"");
+    li.dataset.index=i;
+    var seat='<span class="seat" aria-hidden="true">'+ROMAN[i]+'</span>';
+    var fl='<span class="flag" aria-hidden="true">'+flag(iso)+'</span>';
+    var nm='<span class="name">'+c.name+(state.done?'<small>'+fmt(state.stat,c[state.stat])+'</small>':'')+'</span>';
+    var right;
+    if(state.done){right=state.locked[i]?'<span class="status-mark ok">Seated</span>':'<span class="status-mark" style="color:var(--misplaced)">Seat '+ROMAN[state.answer.indexOf(iso)]+'</span>';}
+    else if(state.locked[i]){right='<span class="status-mark ok">Seated</span>';}
+    else{right='<span class="moves"><button type="button" data-move="-1" aria-label="Move '+c.name+' up">▲</button><button type="button" data-move="1" aria-label="Move '+c.name+' down">▼</button></span>';}
+    li.innerHTML=seat+fl+nm+right;
+    if(state.done)li.classList.add("reveal");
+    li.setAttribute("aria-label","Seat "+ROMAN[i]+": "+c.name);
+    list.appendChild(li);
+    if(!locked)attachDrag(li);
+  });
+  list.querySelectorAll("button[data-move]").forEach(function(b){
+    var i=+b.closest("li").dataset.index,dir=+b.dataset.move;
+    if(neighbor(i,dir)===-1)b.disabled=true;
+    b.addEventListener("click",function(e){e.stopPropagation();var j=neighbor(i,dir);if(j>-1){swap(i,j);render();focusMove(j,dir);}});
+    b.addEventListener("pointerdown",function(e){e.stopPropagation();});
+  });
+
+  $("actions").hidden=state.done;
+  if(!state.done){
+    var left=MAX_TRIES-state.guesses.length;
+    $("msg").textContent=state.guesses.length===0?"Drag the place cards, or use the arrows, then seat them.":
+      (state.locked.filter(Boolean).length+" of "+state.order.length+" seated correctly. "+left+" attempt"+(left===1?"":"s")+" left.");
+  }
+  renderResult();
+  $("dailyBtn").hidden=!practice;
+}
+function focusMove(j,dir){var li=$("table").children[j];if(!li)return;var b=li.querySelector('button[data-move="'+dir+'"]')||li.querySelector("button[data-move]");if(b&&!b.disabled)b.focus();else if(b)(li.querySelector("button[data-move]:not(:disabled)")||b).focus();}
+function neighbor(i,dir){for(var j=i+dir;j>=0&&j<state.order.length;j+=dir){if(!state.locked[j])return j;}return -1;}
+function swap(i,j){var t=state.order[i];state.order[i]=state.order[j];state.order[j]=t;persist();}
+
+function attachDrag(li){
+  li.addEventListener("pointerdown",function(e){
+    if(e.button!==undefined&&e.button!==0)return;
+    var from=+li.dataset.index,startY=e.clientY;
+    li.setPointerCapture(e.pointerId);li.classList.add("dragging");
+    function move(ev){li.style.transform="translateY("+(ev.clientY-startY)+"px)";}
+    function up(ev){
+      li.removeEventListener("pointermove",move);li.removeEventListener("pointerup",up);li.removeEventListener("pointercancel",up);
+      li.classList.remove("dragging");li.style.transform="";
+      var cards=[].slice.call($("table").children),y=ev.clientY,best=from,bestD=Infinity;
+      cards.forEach(function(c,k){if(state.locked[k])return;var r=c.getBoundingClientRect(),mid=r.top+r.height/2,d=Math.abs(mid-y);if(d<bestD){bestD=d;best=k;}});
+      if(best!==from){
+        var slots=[];state.locked.forEach(function(l,k){if(!l)slots.push(k);});
+        var items=slots.map(function(k){return state.order[k];});
+        var fi=slots.indexOf(from),ti=slots.indexOf(best);
+        var it=items.splice(fi,1)[0];items.splice(ti,0,it);
+        slots.forEach(function(k,m){state.order[k]=items[m];});
+        persist();
+      }
+      render();
+    }
+    li.addEventListener("pointermove",move);li.addEventListener("pointerup",up);li.addEventListener("pointercancel",up);
+  });
+}
+
+function submit(){
+  if(state.done)return;
+  var marks=state.order.map(function(iso,i){return iso===state.answer[i];});
+  state.guesses.push(marks);
+  state.locked=marks.slice();
+  var won=marks.every(Boolean);
+  if(won||state.guesses.length>=MAX_TRIES){
+    state.done=true;state.won=won;
+    if(!practice){
+      var st=store.stats;st.played++;
+      if(won){st.wins++;st.streak=(st.lastWin===state.number-1)?st.streak+1:1;st.lastWin=state.number;st.best=Math.max(st.best,st.streak);}
+      else{st.streak=0;}
+    }
+  }
+  persist();render();
+  if(state.done)$("result").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
+}
+
+function shareText(){
+  var head="Summit Seating "+(practice?"(practice)":"No. "+state.number)+" · "+STATS[state.stat].label+(state.mode==="extra"?" · Extraordinary":"");
+  var rows=state.guesses.map(function(g){return g.map(function(b){return b?"🟩":"🟥";}).join("");});
+  return head+"\n"+rows.join("\n")+"\n"+(state.won?state.guesses.length+"/"+MAX_TRIES:"X/"+MAX_TRIES);
+}
+
+function renderResult(){
+  var box=$("result");
+  if(!state.done){box.hidden=true;box.innerHTML="";return;}
+  box.hidden=false;
+  var st=store.stats,pct=st.played?Math.round(st.wins/st.played*100):0;
+  var title=state.won?(state.guesses.length===1?"Flawless protocol.":"All delegations seated."):"The summit ends in disarray.";
+  var sub=state.won?"Seated in "+state.guesses.length+" of "+MAX_TRIES+" attempts.":"The correct seat is shown on each misplaced card.";
+  var html='<h2>'+title+'</h2><div class="msg">'+sub+'</div>';
+  html+='<div class="grid" aria-label="Your result grid">'+state.guesses.map(function(g){return g.map(function(b){return b?"🟩":"🟥";}).join("");}).join("<br>")+'</div>';
+  if(!practice)html+='<div class="statsrow"><div><b>'+st.played+'</b><span>Played</span></div><div><b>'+pct+'</b><span>Win %</span></div><div><b>'+st.streak+'</b><span>Streak</span></div><div><b>'+st.best+'</b><span>Best</span></div></div>';
+  html+='<div class="btnrow"><button class="primary" type="button" id="copyBtn">Copy result</button></div><div id="shareSlot"></div>';
+  if(!practice)html+='<div class="next" id="next"></div>';
+  box.innerHTML=html;
+  $("copyBtn").addEventListener("click",function(){
+    var t=shareText(),btn=this;
+    var fallback=function(){var slot=$("shareSlot");slot.innerHTML='<textarea class="sharebox" id="shareBox" aria-label="Result to copy" readonly></textarea>';var ta=$("shareBox");ta.value=t;ta.focus();ta.select();btn.textContent="Select and copy below";};
+    try{navigator.clipboard.writeText(t).then(function(){btn.textContent="Copied";setTimeout(function(){btn.textContent="Copy result";},1800);},fallback);}catch(e){fallback();}
+  });
+  tick();
+}
+var timer=null;
+function tick(){
+  clearTimeout(timer);var el=$("next");if(!el)return;
+  var now=new Date(),mid=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1),ms=mid-now;
+  if(ms<=0||localDateKey(now)!==state.date){startDaily();return;}
+  var h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000),s=Math.floor(ms%60000/1000);
+  el.textContent="Next summit convenes in "+h+"h "+String(m).padStart(2,"0")+"m "+String(s).padStart(2,"0")+"s";
+  timer=setTimeout(tick,1000);
+}
+
+function startDaily(){practice=false;state=newDaily();persist();render();}
+function startPractice(mode){practice=true;state=newPractice(mode);render();window.scrollTo({top:0});}
+
+$("submitBtn").addEventListener("click",submit);
+$("practiceBtn").addEventListener("click",function(){startPractice("regular");});
+$("practiceHardBtn").addEventListener("click",function(){startPractice("extra");});
+$("dailyBtn").addEventListener("click",function(){startDaily();window.scrollTo({top:0});});
+
+function boot(data){
+  if(data&&data.state&&data.practice){practice=true;state=data.state;render();}
+  else startDaily();
+}
+if(window.claude&&window.claude.hot){window.claude.hot.snapshot&&window.claude.hot.snapshot(function(){return{state:state,practice:practice};});}
+if(window.claude&&window.claude.hot&&window.claude.hot.ready)window.claude.hot.ready(boot);else boot(window.claude&&window.claude.hot&&window.claude.hot.data||{});
+})();
+</script>
+</body>
+</html>
